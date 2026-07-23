@@ -810,12 +810,12 @@ export default function Home() {
                       {hasPhotos && (
                         <div style={{ display: 'flex', width: '100%', height: 'calc(100% - 24px)', marginTop: '4px', gap: '2px' }}>
                           <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr', gridAutoRows: '1fr', gap: '2px', background: 'rgba(0, 245, 212, 0.03)', borderRadius: '4px' }}>
-                            {photosA.slice(0, 3).map((photoStr, idx) => (
+                            {photosA.slice(0, 3).map((photoStr: string, idx: number) => (
                               <div key={`A-${idx}`} className="gallery-photo-item" style={{ background: `url(${photoStr}) center/cover` }}></div>
                             ))}
                           </div>
                           <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr', gridAutoRows: '1fr', gap: '2px', background: 'rgba(213, 0, 249, 0.03)', borderRadius: '4px' }}>
-                            {photosB.slice(0, 3).map((photoStr, idx) => (
+                            {photosB.slice(0, 3).map((photoStr: string, idx: number) => (
                               <div key={`B-${idx}`} className="gallery-photo-item" style={{ background: `url(${photoStr}) center/cover` }}></div>
                             ))}
                           </div>
