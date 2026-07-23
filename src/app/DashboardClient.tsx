@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { getDashboardData, saveDailyRecord, saveInbodyRecord, deleteDailyRecord, deleteInbodyRecord } from '@/app/actions';
+import { getDashboardData, saveDailyRecord, saveInbodyRecord, deleteDailyRecord, deleteInbodyRecord, getAllGalleryData } from '@/app/actions';
 import imageCompression from 'browser-image-compression';
 
 export default function DashboardClient({ initialData }: { initialData: { dailyRecords: any[], inbodyRecords: any[] } }) {
@@ -35,6 +35,22 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
   // 데이터 연동 상태
   const [dbData, setDbData] = useState<{ dailyRecords: any[], inbodyRecords: any[] }>(initialData);
   const [isLoading, setIsLoading] = useState(false);
+
+  // 갤러리 지연 로딩 상태
+  const [galleryPhotos, setGalleryPhotos] = useState<any[]>([]);
+  const [hasFetchedGallery, setHasFetchedGallery] = useState(false);
+  const [isGalleryLoading, setIsGalleryLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'gallery' && !hasFetchedGallery) {
+      setIsGalleryLoading(true);
+      getAllGalleryData().then(photos => {
+        setGalleryPhotos(photos);
+        setHasFetchedGallery(true);
+        setIsGalleryLoading(false);
+      });
+    }
+  }, [activeTab, hasFetchedGallery]);
 
   // 모달 상태 관리
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
@@ -209,6 +225,10 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
       dinnerUrl
     });
     await loadData();
+    if (hasFetchedGallery) {
+      const photos = await getAllGalleryData();
+      setGalleryPhotos(photos);
+    }
     setIsSaving(false);
     closeModal();
   };
@@ -219,6 +239,10 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
     setIsSaving(true);
     await deleteDailyRecord('user-' + selectedPerson?.toLowerCase(), selectedPerson === 'A' ? dateA : dateB);
     await loadData();
+    if (hasFetchedGallery) {
+      const photos = await getAllGalleryData();
+      setGalleryPhotos(photos);
+    }
     setIsSaving(false);
     closeModal();
   };
@@ -276,11 +300,14 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
     const recA = dbData.dailyRecords.find(r => r.userId === 'user-a' && new Date(r.date).toISOString().split('T')[0] === dStr);
     const recB = dbData.dailyRecords.find(r => r.userId === 'user-b' && new Date(r.date).toISOString().split('T')[0] === dStr);
     
+    const photoA = galleryPhotos.find(p => p.userId === 'user-a' && new Date(p.date).toISOString().split('T')[0] === dStr) || recA;
+    const photoB = galleryPhotos.find(p => p.userId === 'user-b' && new Date(p.date).toISOString().split('T')[0] === dStr) || recB;
+
     // 캘린더용
     calendarData[i] = {};
     const exString = (rec: any) => rec?.exercised ? `🔥 ${rec.exerciseType || '완료'}` : (rec?.exerciseType === '휴식' ? '💤 휴식' : '❌ 미입력');
-    if (recA) calendarData[i].A = { weight: recA.weight, exercise: exString(recA), photos: [recA.breakfastUrl, recA.lunchUrl, recA.dinnerUrl].filter(Boolean) };
-    if (recB) calendarData[i].B = { weight: recB.weight, exercise: exString(recB), photos: [recB.breakfastUrl, recB.lunchUrl, recB.dinnerUrl].filter(Boolean) };
+    if (recA) calendarData[i].A = { weight: recA.weight, exercise: exString(recA), photos: [photoA?.breakfastUrl, photoA?.lunchUrl, photoA?.dinnerUrl].filter(Boolean) };
+    if (recB) calendarData[i].B = { weight: recB.weight, exercise: exString(recB), photos: [photoB?.breakfastUrl, photoB?.lunchUrl, photoB?.dinnerUrl].filter(Boolean) };
   }
 
   // 체중 차트용 데이터 (chartFilter 기반 주간/월간 평균 계산)
@@ -838,6 +865,15 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
       {/* 탭 3: 식단 갤러리 */}
       {activeTab === 'gallery' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {isGalleryLoading && (
+            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '16px', animation: 'spin 1s linear infinite' }}>⏳</div>
+              <p>과거 식단 사진들을 불러오는 중입니다...</p>
+            </div>
+          )}
+
+          {!isGalleryLoading && (
           <section className="glass-card">
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
               <button className="btn" style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.05)' }} onClick={() => setViewDate(new Date(currentYear, currentMonth - 1, 1))}>◀</button>
@@ -875,6 +911,7 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
               </div>
             </div>
           </section>
+          )}
         </div>
       )}
 

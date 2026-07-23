@@ -135,12 +135,33 @@ export async function deleteInbodyRecord(userId: string, date: string) {
   revalidatePath('/');
 }
 
-// 저장된 모든 데이터 불러오기 함수
+// 저장된 모든 데이터 불러오기 함수 (초기 로딩용 - 사진은 최근 7일치만)
 export async function getDashboardData() {
-  const dailyRecords = await prisma.dailyRecord.findMany({
-    include: { user: true },
+  const dailyRecordsRaw = await prisma.dailyRecord.findMany({
+    select: {
+      id: true,
+      userId: true,
+      date: true,
+      weight: true,
+      exercised: true,
+      exerciseType: true,
+      user: true,
+    },
     orderBy: { date: 'asc' }
   })
+
+  // 최근 14일치 사진만 초기 로딩에 포함 (대시보드 표시용)
+  const fourteenDaysAgo = new Date();
+  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+  const recentPhotos = await prisma.dailyRecord.findMany({
+    where: { date: { gte: fourteenDaysAgo } },
+    select: { userId: true, date: true, breakfastUrl: true, lunchUrl: true, dinnerUrl: true }
+  });
+
+  const dailyRecords = dailyRecordsRaw.map(r => {
+    const photo = recentPhotos.find(p => p.userId === r.userId && p.date.getTime() === r.date.getTime());
+    return { ...r, breakfastUrl: photo?.breakfastUrl, lunchUrl: photo?.lunchUrl, dinnerUrl: photo?.dinnerUrl };
+  });
   
   const inbodyRecords = await prisma.inbodyRecord.findMany({
     include: { user: true },
@@ -148,4 +169,19 @@ export async function getDashboardData() {
   })
   
   return { dailyRecords, inbodyRecords }
+}
+
+// 갤러리 탭 진입 시 과거 모든 사진 데이터 불러오기 함수
+export async function getAllGalleryData() {
+  const photos = await prisma.dailyRecord.findMany({
+    select: { userId: true, date: true, breakfastUrl: true, lunchUrl: true, dinnerUrl: true },
+    where: {
+      OR: [
+        { breakfastUrl: { not: null } },
+        { lunchUrl: { not: null } },
+        { dinnerUrl: { not: null } },
+      ]
+    }
+  });
+  return photos;
 }
