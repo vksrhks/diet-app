@@ -834,21 +834,16 @@ export default function Home() {
               <button className="btn" style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.05)' }} onClick={() => setViewDate(new Date(currentYear, currentMonth + 1, 1))}>▶</button>
             </div>
             <div className="calendar-wrapper">
-              <div className="calendar-header">
-                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
-              </div>
-              <div className="calendar-grid">
-                {calendarDays.map((day, index) => {
-                  if (day === null) return <div key={`empty-${index}`} className="calendar-day empty"></div>;
-                  
+              <div className="gallery-grid">
+                {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
                   const data = calendarData[day];
                   const photosA = data?.A?.photos || [];
                   const photosB = data?.B?.photos || [];
                   const hasPhotos = photosA.length > 0 || photosB.length > 0;
 
                   return (
-                    <div key={day} className="calendar-day">
-                      <div className="calendar-date" style={{ marginBottom: '0' }}>{day}</div>
+                    <div key={day} className="calendar-day" style={{ minHeight: '120px' }}>
+                      <div className="calendar-date" style={{ marginBottom: '0' }}>{day}일</div>
                       {hasPhotos && (
                         <div style={{ display: 'flex', width: '100%', height: 'calc(100% - 24px)', marginTop: '4px', gap: '2px' }}>
                           <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr', gridAutoRows: '1fr', gap: '2px', background: 'rgba(0, 245, 212, 0.03)', borderRadius: '4px' }}>

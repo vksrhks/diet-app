@@ -427,6 +427,13 @@ a {
   border-color: transparent;
 }
 
+/* === Gallery Grid (Simple 1~30) === */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+}
+
 @media (max-width: 768px) {
   .summary-calendar-grid {
     gap: 2px;
