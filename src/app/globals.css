@@ -446,6 +446,10 @@ a {
     border-radius: 2px;
   }
   .summary-calendar-day .cal-exercise {
-    display: none; /* 모바일 요약 달력에서는 운동 내역 텍스트 숨김 (너무 좁음) */
+    font-size: 0.5rem;
+    line-height: 1.1;
+    margin-top: 1px;
+    word-break: keep-all;
+    display: block;
   }
 }
