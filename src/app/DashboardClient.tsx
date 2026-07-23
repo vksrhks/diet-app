@@ -689,13 +689,13 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
                       <div className="cal-data-row">
                         {data?.A && (
                           <div className="cal-person">
-                            <div className="cal-mint" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nameA.charAt(0)} {data.A.weight}kg</div>
+                            <div className="cal-mint" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{data.A.weight}kg</div>
                             <div className="cal-exercise" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{data.A.exercise}</div>
                           </div>
                         )}
                         {data?.B && (
                           <div className="cal-person">
-                            <div className="cal-purple" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nameB.charAt(0)} {data.B.weight}kg</div>
+                            <div className="cal-purple" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{data.B.weight}kg</div>
                             <div className="cal-exercise" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{data.B.exercise}</div>
                           </div>
                         )}
