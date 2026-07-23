@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  themeColor   String        // "mint" or "coral"
+  targetWeight   Float?
+  records        DailyRecord[]
+  inbodyRecords  InbodyRecord[]
+  createdAt      DateTime      @default(now())
+}
+
+model DailyRecord {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  date         DateTime @db.Date
+  weight       Float?
+  diet         String?  // 아침, 점심, 저녁 등 식단 텍스트 기록
+  breakfastUrl String?  // 아침 식단 사진 URL
+  lunchUrl     String?  // 점심 식단 사진 URL
+  dinnerUrl    String?  // 저녁 식단 사진 URL
+  exercised    Boolean  @default(false)
+  exerciseType String?  // 헬스, 러닝 등 운동 종류
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@unique([userId, date]) // 한 유저당 같은 날짜에는 하나의 통합 기록만 존재
+}
+
+model InbodyRecord {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  date            DateTime @db.Date
+  muscleMass      Float?   // 골격근량 (kg)
+  fatMass         Float?   // 체지방량 (kg)
+  fatPercentage   Float?   // 체지방률 (%)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, date]) // 한 유저당 같은 날짜에는 하나의 통합 기록만 존재
+}
