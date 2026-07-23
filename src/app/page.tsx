@@ -11,6 +11,27 @@ export default function Home() {
   const [isProfileExpanded, setIsProfileExpanded] = useState(false);
   const [chartFilter, setChartFilter] = useState<'day' | 'week' | 'month'>('day');
   
+  // 1인 선택 모드 
+  const [selectedTodayUser, setSelectedTodayUser] = useState<'A' | 'B'>('A');
+
+  useEffect(() => {
+    try {
+      const savedUser = localStorage.getItem('diet_selectedTodayUser') as 'A' | 'B';
+      if (savedUser) setSelectedTodayUser(savedUser);
+    } catch (e) {
+      console.warn("localStorage is not available");
+    }
+  }, []);
+
+  const handleUserSelect = (user: 'A' | 'B') => {
+    setSelectedTodayUser(user);
+    try {
+      localStorage.setItem('diet_selectedTodayUser', user);
+    } catch (e) {
+      console.warn("localStorage is not available");
+    }
+  };
+
   // 데이터 연동 상태
   const [dbData, setDbData] = useState<{ dailyRecords: any[], inbodyRecords: any[] }>({ dailyRecords: [], inbodyRecords: [] });
   const [isLoading, setIsLoading] = useState(true);
@@ -64,17 +85,21 @@ export default function Home() {
   // 데이터 로드
   const loadData = async () => {
     setIsLoading(true);
-    const data = await getDashboardData();
-    setDbData(data);
-    
-    // 데이터베이스에 저장된 진짜 이름이 있다면 불러오기
-    const userA = data.dailyRecords.find(r => r.userId === 'user-a')?.user || data.inbodyRecords.find(r => r.userId === 'user-a')?.user;
-    const userB = data.dailyRecords.find(r => r.userId === 'user-b')?.user || data.inbodyRecords.find(r => r.userId === 'user-b')?.user;
-    
-    if (userA) setNameA(userA.name);
-    if (userB) setNameB(userB.name);
-
-    setIsLoading(false);
+    try {
+      const data = await getDashboardData();
+      setDbData(data);
+      
+      // 데이터베이스에 저장된 진짜 이름이 있다면 불러오기
+      const userA = data.dailyRecords.find(r => r.userId === 'user-a')?.user || data.inbodyRecords.find(r => r.userId === 'user-a')?.user;
+      const userB = data.dailyRecords.find(r => r.userId === 'user-b')?.user || data.inbodyRecords.find(r => r.userId === 'user-b')?.user;
+      
+      if (userA) setNameA(userA.name);
+      if (userB) setNameB(userB.name);
+    } catch (e) {
+      console.error("데이터 로드 실패:", e);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -449,11 +474,32 @@ export default function Home() {
 
           {/* --- 2. 오늘의 기록 --- */}
           <section>
-            <h2 style={{ fontSize: '1.2rem', marginBottom: '16px', color: 'var(--text-primary)' }}>📝 오늘의 기록</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--text-primary)' }}>📝 오늘의 기록</h2>
+              {/* 1인 선택 토글 버튼 */}
+              <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '12px' }}>
+                <button 
+                  className="btn"
+                  style={{ padding: '6px 12px', fontSize: '0.9rem', borderRadius: '8px', background: selectedTodayUser === 'A' ? 'var(--color-mint)' : 'transparent', color: selectedTodayUser === 'A' ? '#000' : 'var(--text-secondary)', boxShadow: selectedTodayUser === 'A' ? '0 0 10px rgba(0, 245, 212, 0.3)' : 'none' }}
+                  onClick={() => handleUserSelect('A')}
+                >
+                  {nameA}
+                </button>
+                <button 
+                  className="btn"
+                  style={{ padding: '6px 12px', fontSize: '0.9rem', borderRadius: '8px', background: selectedTodayUser === 'B' ? 'var(--color-purple)' : 'transparent', color: selectedTodayUser === 'B' ? '#fff' : 'var(--text-secondary)', boxShadow: selectedTodayUser === 'B' ? '0 0 10px rgba(213, 0, 249, 0.3)' : 'none' }}
+                  onClick={() => handleUserSelect('B')}
+                >
+                  {nameB}
+                </button>
+              </div>
+            </div>
             <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
           
-          {/* 👤 Person A Card (세로 레이아웃 적용) */}
-          <section className="glass-card" style={{ flex: '1 1 300px' }}>
+          {selectedTodayUser === 'A' && (
+            <>
+              {/* 👤 Person A Card (세로 레이아웃 적용) */}
+              <section className="glass-card" style={{ flex: '1 1 300px' }}>
             
             {/* 1열: 이름 + 인바디 버튼 + 하이브리드 날짜 버튼 */}
             <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '16px' }}>
@@ -461,14 +507,9 @@ export default function Home() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '1.2rem', color: 'var(--color-mint)' }}>👤</span>
-                  <input 
-                    type="text" 
-                    value={nameA} 
-                    onChange={(e) => setNameA(e.target.value)} 
-                    className="form-input"
-                    style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-mint)', background: 'transparent', border: 'none', padding: 0, outline: 'none', width: '100px' }}
-                    placeholder="이름 입력"
-                  />
+                  <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-mint)' }}>
+                    {nameA}
+                  </span>
                 </div>
                 <button className="btn" style={{ padding: '6px 12px', fontSize: '0.8rem', background: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '4px' }} onClick={() => openInbodyModal('A')}>
                   💪 인바디
@@ -527,10 +568,14 @@ export default function Home() {
             <button className="btn btn-mint" style={{ width: '100%', padding: '16px', fontSize: '1.1rem' }} onClick={() => openRecordModal('A')}>
               기록하기 (수정)
             </button>
-          </section>
+              </section>
+            </>
+          )}
 
-          {/* 👤 Person B Card (세로 레이아웃 적용) */}
-          <section className="glass-card" style={{ flex: '1 1 300px' }}>
+          {selectedTodayUser === 'B' && (
+            <>
+              {/* 👤 Person B Card */}
+              <section className="glass-card" style={{ flex: '1 1 300px' }}>
             
             {/* 1열: 이름 + 인바디 버튼 + 하이브리드 날짜 버튼 */}
             <div style={{ marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '16px' }}>
@@ -538,14 +583,9 @@ export default function Home() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <span style={{ fontSize: '1.2rem', color: 'var(--color-purple)' }}>👤</span>
-                  <input 
-                    type="text" 
-                    value={nameB} 
-                    onChange={(e) => setNameB(e.target.value)} 
-                    className="form-input"
-                    style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-purple)', background: 'transparent', border: 'none', padding: 0, outline: 'none', width: '100px' }}
-                    placeholder="이름 입력"
-                  />
+                  <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--color-purple)' }}>
+                    {nameB}
+                  </span>
                 </div>
                 <button className="btn" style={{ padding: '6px 12px', fontSize: '0.8rem', background: 'rgba(255,255,255,0.1)', color: '#fff', borderRadius: '4px' }} onClick={() => openInbodyModal('B')}>
                   💪 인바디
@@ -604,7 +644,9 @@ export default function Home() {
             <button className="btn btn-purple" style={{ width: '100%', padding: '16px', fontSize: '1.1rem' }} onClick={() => openRecordModal('B')}>
               기록하기 (수정)
             </button>
-          </section>
+              </section>
+            </>
+          )}
             </div>
           </section>
         </div>
@@ -625,13 +667,13 @@ export default function Home() {
               <div className="calendar-header">
                 <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
               </div>
-              <div className="calendar-grid">
+              <div className="summary-calendar-grid">
                 {calendarDays.map((day, index) => {
-                  if (day === null) return <div key={`empty-${index}`} className="calendar-day empty"></div>;
+                  if (day === null) return <div key={`empty-${index}`} className="summary-calendar-day empty"></div>;
                   
                   const data = calendarData[day];
                   return (
-                    <div key={day} className="calendar-day" style={{ minHeight: '120px' }}>
+                    <div key={day} className="summary-calendar-day">
                       <div className="calendar-date">{day}</div>
                       <div className="cal-data-row">
                         {data?.A && (

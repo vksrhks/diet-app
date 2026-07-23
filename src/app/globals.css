@@ -402,3 +402,50 @@ a {
     font-size: 1.8rem !important;
   }
 }
+
+/* === Summary Calendar (Mobile no-scroll) === */
+.summary-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr)); /* allow it to shrink */
+  gap: 8px;
+}
+
+.summary-calendar-day {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 8px;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.summary-calendar-day.empty {
+  background: transparent;
+  border-color: transparent;
+}
+
+@media (max-width: 768px) {
+  .summary-calendar-grid {
+    gap: 2px;
+  }
+  .summary-calendar-day {
+    padding: 2px;
+    min-height: 70px !important;
+    border-radius: 4px;
+  }
+  .summary-calendar-day .calendar-date {
+    font-size: 0.7rem;
+    margin-bottom: 1px;
+  }
+  .summary-calendar-day .cal-person {
+    padding: 1px;
+    font-size: 0.55rem;
+    border-radius: 2px;
+  }
+  .summary-calendar-day .cal-exercise {
+    display: none; /* 모바일 요약 달력에서는 운동 내역 텍스트 숨김 (너무 좁음) */
+  }
+}
