@@ -363,8 +363,8 @@ export default function Home() {
             </div>
 
             {!isProfileExpanded ? (
-              // 간략 모드 (접힘) - 좌우 2분할, 위:이름, 아래:스탯
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
+              // 간략 모드 (접힘) - 항상 좌우 2분할 (모바일 대응)
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 
                 {/* Person A 간략 */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: '8px', borderLeft: '4px solid var(--color-mint)' }}>
@@ -391,9 +391,9 @@ export default function Home() {
               </div>
             ) : (
               // 확장 모드 (펼침)
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 {/* Person A Stat Card */}
-                <div className="glass-card" style={{ padding: '20px', borderTop: '4px solid var(--color-mint)' }}>
+                <div className="glass-card" style={{ padding: '16px', borderTop: '4px solid var(--color-mint)' }}>
                   <h3 style={{ fontSize: '1.1rem', marginBottom: '16px', color: 'var(--color-mint)' }}>{nameA}</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '8px' }}>
@@ -419,7 +419,7 @@ export default function Home() {
                 </div>
   
                 {/* Person B Stat Card */}
-                <div className="glass-card" style={{ padding: '20px', borderTop: '4px solid var(--color-purple)' }}>
+                <div className="glass-card" style={{ padding: '16px', borderTop: '4px solid var(--color-purple)' }}>
                   <h3 style={{ fontSize: '1.1rem', marginBottom: '16px', color: 'var(--color-purple)' }}>{nameB}</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                     <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '8px' }}>

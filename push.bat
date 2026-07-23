@@ -1,3 +1,3 @@
 git add .
-git commit -m "Add postinstall for Prisma"
+git commit -m "Mobile UI Optimization"
 git push origin main

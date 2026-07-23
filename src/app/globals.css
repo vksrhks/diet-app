@@ -374,3 +374,31 @@ a {
   border-radius: 4px;
   background-color: rgba(255,255,255,0.05);
 }
+
+/* === Mobile Responsiveness === */
+@media (max-width: 768px) {
+  .calendar-day {
+    min-height: 80px !important;
+    padding: 4px;
+  }
+  .cal-person {
+    padding: 2px;
+    font-size: 0.65rem;
+  }
+  .cal-exercise {
+    font-size: 0.6rem;
+  }
+  .calendar-date {
+    font-size: 0.75rem;
+    margin-bottom: 2px;
+  }
+  .glass-card {
+    padding: 16px;
+  }
+  .container {
+    padding: 12px;
+  }
+  h1.text-gradient {
+    font-size: 1.8rem !important;
+  }
+}
