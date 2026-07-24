@@ -57,6 +57,10 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
   const [isInbodyModalOpen, setIsInbodyModalOpen] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<'A' | 'B' | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // 갤러리 슬라이더 상태
+  const [selectedGalleryDay, setSelectedGalleryDay] = useState<number | null>(null);
+  const [sliderIndex, setSliderIndex] = useState(0);
 
   // 날짜 유틸
   const today = new Date();
@@ -306,8 +310,17 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
     // 캘린더용
     calendarData[i] = {};
     const exString = (rec: any) => rec?.exercised ? `🔥 ${rec.exerciseType || '완료'}` : (rec?.exerciseType === '휴식' ? '💤 휴식' : '❌ 미입력');
-    if (recA) calendarData[i].A = { weight: recA.weight, exercise: exString(recA), photos: [photoA?.breakfastUrl, photoA?.lunchUrl, photoA?.dinnerUrl].filter(Boolean) };
-    if (recB) calendarData[i].B = { weight: recB.weight, exercise: exString(recB), photos: [photoB?.breakfastUrl, photoB?.lunchUrl, photoB?.dinnerUrl].filter(Boolean) };
+    
+    const buildPhotos = (p: any, ownerName: string) => {
+      const arr = [];
+      if (p?.breakfastUrl) arr.push({ url: p.breakfastUrl, meal: '아침', owner: ownerName });
+      if (p?.lunchUrl) arr.push({ url: p.lunchUrl, meal: '점심', owner: ownerName });
+      if (p?.dinnerUrl) arr.push({ url: p.dinnerUrl, meal: '저녁', owner: ownerName });
+      return arr;
+    };
+    
+    if (recA) calendarData[i].A = { weight: recA.weight, exercise: exString(recA), photos: buildPhotos(photoA, nameA) };
+    if (recB) calendarData[i].B = { weight: recB.weight, exercise: exString(recB), photos: buildPhotos(photoB, nameB) };
   }
 
   // 체중 차트용 데이터 (chartFilter 기반 주간/월간 평균 계산)
@@ -889,18 +902,30 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
                   const hasPhotos = photosA.length > 0 || photosB.length > 0;
 
                   return (
-                    <div key={day} className="calendar-day" style={{ minHeight: '120px' }}>
+                    <div 
+                      key={day} 
+                      className="calendar-day" 
+                      style={{ minHeight: '120px', cursor: hasPhotos ? 'pointer' : 'default', transition: 'background 0.2s' }}
+                      onClick={() => {
+                        if (hasPhotos) {
+                          setSelectedGalleryDay(day);
+                          setSliderIndex(0);
+                        }
+                      }}
+                      onMouseEnter={(e) => { if (hasPhotos) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                      onMouseLeave={(e) => { if (hasPhotos) e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
+                    >
                       <div className="calendar-date" style={{ marginBottom: '0' }}>{day}일</div>
                       {hasPhotos && (
                         <div style={{ display: 'flex', width: '100%', height: 'calc(100% - 24px)', marginTop: '4px', gap: '2px' }}>
                           <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr', gridAutoRows: '1fr', gap: '2px', background: 'rgba(0, 245, 212, 0.03)', borderRadius: '4px' }}>
-                            {photosA.slice(0, 3).map((photoStr: string, idx: number) => (
-                              <div key={`A-${idx}`} className="gallery-photo-item" style={{ background: `url(${photoStr}) center/cover` }}></div>
+                            {photosA.slice(0, 3).map((photoObj: any, idx: number) => (
+                              <div key={`A-${idx}`} className="gallery-photo-item" style={{ background: `url(${photoObj.url}) center/cover` }}></div>
                             ))}
                           </div>
                           <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr', gridAutoRows: '1fr', gap: '2px', background: 'rgba(213, 0, 249, 0.03)', borderRadius: '4px' }}>
-                            {photosB.slice(0, 3).map((photoStr: string, idx: number) => (
-                              <div key={`B-${idx}`} className="gallery-photo-item" style={{ background: `url(${photoStr}) center/cover` }}></div>
+                            {photosB.slice(0, 3).map((photoObj: any, idx: number) => (
+                              <div key={`B-${idx}`} className="gallery-photo-item" style={{ background: `url(${photoObj.url}) center/cover` }}></div>
                             ))}
                           </div>
                         </div>
@@ -1062,6 +1087,61 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 갤러리 슬라이더 모달 */}
+      {selectedGalleryDay !== null && (
+        <div className="modal-overlay" onClick={() => setSelectedGalleryDay(null)} style={{ background: 'rgba(0,0,0,0.9)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ background: 'transparent', boxShadow: 'none', padding: 0, position: 'relative', width: '90%', maxWidth: '600px', height: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <button className="modal-close" onClick={() => setSelectedGalleryDay(null)} style={{ top: '-40px', right: '0', color: 'white', background: 'rgba(255,255,255,0.2)' }}>&times;</button>
+            
+            {(() => {
+              const data = calendarData[selectedGalleryDay];
+              const allPhotos = [...(data?.A?.photos || []), ...(data?.B?.photos || [])];
+              if (allPhotos.length === 0) return null;
+              
+              const currentPhoto = allPhotos[sliderIndex];
+
+              return (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', background: '#111', borderRadius: '12px', overflow: 'hidden' }}>
+                  {/* 사진 렌더링 */}
+                  <div style={{ flex: 1, background: `url(${currentPhoto.url}) center/contain no-repeat`, width: '100%' }}></div>
+                  
+                  {/* 정보 표시 */}
+                  <div style={{ padding: '16px', background: 'rgba(0,0,0,0.8)', textAlign: 'center', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: currentPhoto.owner === nameA ? 'var(--color-mint)' : 'var(--color-purple)', fontWeight: 'bold', fontSize: '1.2rem' }}>
+                      {currentPhoto.owner}
+                    </span>
+                    <span style={{ color: 'white', fontSize: '1.1rem' }}>
+                      {currentYear}년 {currentMonth + 1}월 {selectedGalleryDay}일 - {currentPhoto.meal}
+                    </span>
+                  </div>
+
+                  {/* 좌우 화살표 */}
+                  {allPhotos.length > 1 && (
+                    <>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setSliderIndex((prev) => (prev > 0 ? prev - 1 : allPhotos.length - 1)); }}
+                        style={{ position: 'absolute', top: '50%', left: '10px', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.2rem', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >◀</button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setSliderIndex((prev) => (prev < allPhotos.length - 1 ? prev + 1 : 0)); }}
+                        style={{ position: 'absolute', top: '50%', right: '10px', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.5)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.2rem', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >▶</button>
+                    </>
+                  )}
+                  
+                  {/* 인디케이터 (점) */}
+                  <div style={{ position: 'absolute', bottom: '60px', left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: '8px', zIndex: 10 }}>
+                    {allPhotos.map((_, idx) => (
+                      <div key={idx} style={{ width: '8px', height: '8px', borderRadius: '50%', background: idx === sliderIndex ? 'white' : 'rgba(255,255,255,0.4)' }} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

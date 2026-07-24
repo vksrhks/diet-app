@@ -7,9 +7,7 @@ const nextConfig: any = {
       allowedOrigins: ['localhost:3000', '192.168.1.151:3000'],
     },
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  allowedDevOrigins: ['192.168.1.151'],
   typescript: {
     ignoreBuildErrors: true,
   },
