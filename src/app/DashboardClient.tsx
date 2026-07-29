@@ -34,7 +34,14 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
 
   // 데이터 연동 상태
   const [dbData, setDbData] = useState<{ dailyRecords: any[], inbodyRecords: any[] }>(initialData);
-  const [isLoading, setIsLoading] = useState(false);
+  
+  useEffect(() => {
+    setDbData(initialData);
+    const userA = initialData.dailyRecords.find((r: any) => r.userId === 'user-a')?.user || initialData.inbodyRecords.find((r: any) => r.userId === 'user-a')?.user;
+    const userB = initialData.dailyRecords.find((r: any) => r.userId === 'user-b')?.user || initialData.inbodyRecords.find((r: any) => r.userId === 'user-b')?.user;
+    if (userA) setNameA(userA.name);
+    if (userB) setNameB(userB.name);
+  }, [initialData]);
 
   // 갤러리 지연 로딩 상태
   const [galleryPhotos, setGalleryPhotos] = useState<any[]>([]);
@@ -104,30 +111,6 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
   const [fatMassInput, setFatMassInput] = useState('');
   const [fatPercentInput, setFatPercentInput] = useState('');
 
-  // 데이터 로드
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      const data = await getDashboardData();
-      setDbData(data);
-      
-      // 데이터베이스에 저장된 진짜 이름이 있다면 불러오기
-      const userA = data.dailyRecords.find(r => r.userId === 'user-a')?.user || data.inbodyRecords.find(r => r.userId === 'user-a')?.user;
-      const userB = data.dailyRecords.find(r => r.userId === 'user-b')?.user || data.inbodyRecords.find(r => r.userId === 'user-b')?.user;
-      
-      if (userA) setNameA(userA.name);
-      if (userB) setNameB(userB.name);
-    } catch (e) {
-      console.error("데이터 로드 실패:", e);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // useEffect(() => {
-  //   loadData();
-  // }, []);
-
   useEffect(() => {
     if (isInbodyModalOpen && selectedPerson) {
       const rawDate = selectedPerson === 'A' ? inbodyDateA : inbodyDateB;
@@ -193,11 +176,12 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
     const file = e.target.files?.[0];
     if (file) {
       try {
-        // 이미지 압축 옵션: 최대 용량 0.5MB, 최대 너비/높이 800px
+        // 이미지 압축 옵션: 최대 용량 0.1MB, 강제 JPEG, 최대 너비/높이 600px
         const options = {
-          maxSizeMB: 0.5,
-          maxWidthOrHeight: 800,
+          maxSizeMB: 0.1,
+          maxWidthOrHeight: 600,
           useWebWorker: true,
+          fileType: 'image/jpeg' as string,
         };
         const compressedFile = await imageCompression(file, options);
         
@@ -228,10 +212,8 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
       lunchUrl,
       dinnerUrl
     });
-    await loadData();
     if (hasFetchedGallery) {
-      const photos = await getAllGalleryData();
-      setGalleryPhotos(photos);
+      getAllGalleryData().then(setGalleryPhotos);
     }
     setIsSaving(false);
     closeModal();
@@ -242,10 +224,8 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
     if (!confirm('해당 날짜의 기록을 삭제하시겠습니까?')) return;
     setIsSaving(true);
     await deleteDailyRecord('user-' + selectedPerson?.toLowerCase(), selectedPerson === 'A' ? dateA : dateB);
-    await loadData();
     if (hasFetchedGallery) {
-      const photos = await getAllGalleryData();
-      setGalleryPhotos(photos);
+      getAllGalleryData().then(setGalleryPhotos);
     }
     setIsSaving(false);
     closeModal();
@@ -256,7 +236,6 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
     setIsSaving(true);
     // 월별 저장이므로 무조건 해당 월의 1일 날짜로 삭제
     await deleteInbodyRecord('user-' + selectedPerson?.toLowerCase(), (selectedPerson === 'A' ? inbodyDateA : inbodyDateB).substring(0, 7) + '-01');
-    await loadData();
     setIsSaving(false);
     closeModal();
   };
@@ -272,7 +251,6 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
       fatMass: fatMassInput ? parseFloat(fatMassInput) : undefined,
       fatPercentage: fatPercentInput ? parseFloat(fatPercentInput) : undefined,
     });
-    await loadData();
     setIsSaving(false);
     closeModal();
   };
@@ -416,14 +394,7 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
         </div>
       </header>
 
-      {/* 로딩 오버레이 (데이터 동기화 꼬임 방지) */}
-      {isLoading && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 9999, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', backdropFilter: 'blur(4px)' }}>
-          <div style={{ fontSize: '3rem', marginBottom: '16px', animation: 'spin 1s linear infinite' }}>⏳</div>
-          <div style={{ color: 'white', fontSize: '1.2rem', fontWeight: 'bold' }}>데이터를 동기화하고 있습니다...</div>
-          <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '8px' }}>잠시만 기다려주세요</div>
-        </div>
-      )}
+      {/* 로딩 오버레이 제거됨 */}
 
       {/* 탭 1: 오늘의 기록 (대시보드) */}
       {activeTab === 'dashboard' && (

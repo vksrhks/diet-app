@@ -150,11 +150,11 @@ export async function getDashboardData() {
     orderBy: { date: 'asc' }
   })
 
-  // 최근 14일치 사진만 초기 로딩에 포함 (대시보드 표시용)
-  const fourteenDaysAgo = new Date();
-  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+  // 최근 3일치 사진만 초기 로딩에 포함 (대시보드 표시용)
+  const threeDaysAgo = new Date();
+  threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
   const recentPhotos = await prisma.dailyRecord.findMany({
-    where: { date: { gte: fourteenDaysAgo } },
+    where: { date: { gte: threeDaysAgo } },
     select: { userId: true, date: true, breakfastUrl: true, lunchUrl: true, dinnerUrl: true }
   });
 
