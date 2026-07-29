@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { getDashboardData, saveDailyRecord, saveInbodyRecord, deleteDailyRecord, deleteInbodyRecord, getGalleryDataForMonth } from '@/app/actions';
+import { getDashboardData, saveDailyRecord, saveInbodyRecord, deleteDailyRecord, deleteInbodyRecord, getGalleryDataForMonth, getPhotosForDateRange } from '@/app/actions';
 import imageCompression from 'browser-image-compression';
 
 export default function DashboardClient({ initialData }: { initialData: { dailyRecords: any[], inbodyRecords: any[] } }) {
@@ -103,6 +103,57 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
   // UI 상태 (대시보드 날짜/이름)
   const [dateA, setDateA] = useState(todayStr);
   const [dateB, setDateB] = useState(todayStr);
+  const [loadedPhotoDates, setLoadedPhotoDates] = useState<Set<string>>(() => {
+    const set = new Set<string>();
+    const d = new Date();
+    for (let i = 0; i < 7; i++) {
+      set.add(getKSTDateString(d));
+      d.setDate(d.getDate() - 1);
+    }
+    return set;
+  });
+  const [isFetchingPhotos, setIsFetchingPhotos] = useState(false);
+
+  const handleDateChange = async (targetDateStr: string, person: 'A' | 'B') => {
+    if (person === 'A') setDateA(targetDateStr);
+    else setDateB(targetDateStr);
+
+    if (loadedPhotoDates.has(targetDateStr)) return;
+
+    setIsFetchingPhotos(true);
+    const endDateStr = targetDateStr;
+    const startDate = new Date(targetDateStr);
+    startDate.setDate(startDate.getDate() - 6);
+    const startDateStr = getKSTDateString(startDate);
+    
+    try {
+      const photos = await getPhotosForDateRange(startDateStr, endDateStr);
+      setDbData(prev => {
+        const newRecords = [...prev.dailyRecords];
+        photos.forEach(photo => {
+          const photoDateStr = new Date(photo.date).toISOString().split('T')[0];
+          const idx = newRecords.findIndex(r => r.userId === photo.userId && new Date(r.date).toISOString().split('T')[0] === photoDateStr);
+          if (idx !== -1) {
+            newRecords[idx] = { ...newRecords[idx], breakfastUrl: photo.breakfastUrl, lunchUrl: photo.lunchUrl, dinnerUrl: photo.dinnerUrl };
+          }
+        });
+        return { ...prev, dailyRecords: newRecords };
+      });
+      
+      setLoadedPhotoDates(prev => {
+        const next = new Set(prev);
+        const d = new Date(targetDateStr);
+        for(let i=0; i<7; i++) {
+          next.add(getKSTDateString(d));
+          d.setDate(d.getDate() - 1);
+        }
+        return next;
+      });
+    } catch(e) {
+      console.error(e);
+    }
+    setIsFetchingPhotos(false);
+  };
   const [inbodyDateA, setInbodyDateA] = useState(todayStr);
   const [inbodyDateB, setInbodyDateB] = useState(todayStr);
   const userA_db = initialData.dailyRecords.find((r: any) => r.userId === 'user-a')?.user || initialData.inbodyRecords.find((r: any) => r.userId === 'user-a')?.user;
@@ -555,26 +606,29 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
               </div>
 
               {/* 하이브리드 날짜 버튼 (좌우 이동 + 클릭 시 달력) */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', overflow: 'hidden' }}>
-                <button className="btn" style={{ flex: 1, padding: '8px', background: 'transparent', color: 'var(--text-secondary)', borderRadius: 0, borderRight: '1px solid rgba(255,255,255,0.05)' }} onClick={() => setDateA(changeDate(dateA, -1))}>◀ 이전</button>
-                <input 
-                  type="date"
-                  value={dateA}
-                  onChange={(e) => setDateA(e.target.value)}
-                  onClick={(e) => { if ('showPicker' in HTMLInputElement.prototype) (e.target as HTMLInputElement).showPicker(); }}
-                  style={{ 
-                    background: 'transparent', 
-                    border: 'none', 
-                    color: 'var(--text-primary)', 
-                    fontWeight: 'bold', 
-                    textAlign: 'center', 
-                    fontSize: '0.95rem',
-                    padding: '8px 4px',
-                    outline: 'none',
-                    cursor: 'pointer'
-                  }}
-                />
-                <button className="btn" style={{ flex: 1, padding: '8px', background: 'transparent', color: 'var(--text-secondary)', borderRadius: 0, borderLeft: '1px solid rgba(255,255,255,0.05)' }} onClick={() => setDateA(changeDate(dateA, 1))}>다음 ▶</button>
+              <div style={{ position: 'relative' }}>
+                {isFetchingPhotos && <div style={{position: 'absolute', top: '-18px', left: 0, right: 0, textAlign: 'center', fontSize: '0.75rem', color: 'var(--color-mint)'}}>사진을 불러오는 중...</div>}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', overflow: 'hidden' }}>
+                  <button className="btn" style={{ flex: 1, padding: '8px', background: 'transparent', color: 'var(--text-secondary)', borderRadius: 0, borderRight: '1px solid rgba(255,255,255,0.05)' }} onClick={() => handleDateChange(changeDate(dateA, -1), 'A')}>◀ 이전</button>
+                  <input 
+                    type="date"
+                    value={dateA}
+                    onChange={(e) => handleDateChange(e.target.value, 'A')}
+                    onClick={(e) => { if ('showPicker' in HTMLInputElement.prototype) (e.target as HTMLInputElement).showPicker(); }}
+                    style={{ 
+                      background: 'transparent', 
+                      border: 'none', 
+                      color: 'var(--text-primary)', 
+                      fontWeight: 'bold', 
+                      textAlign: 'center', 
+                      fontSize: '0.95rem',
+                      padding: '8px 4px',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  />
+                  <button className="btn" style={{ flex: 1, padding: '8px', background: 'transparent', color: 'var(--text-secondary)', borderRadius: 0, borderLeft: '1px solid rgba(255,255,255,0.05)' }} onClick={() => handleDateChange(changeDate(dateA, 1), 'A')}>다음 ▶</button>
+                </div>
               </div>
             </div>
             
@@ -631,26 +685,29 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
               </div>
 
               {/* 하이브리드 날짜 버튼 (좌우 이동 + 클릭 시 달력) */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', overflow: 'hidden' }}>
-                <button className="btn" style={{ flex: 1, padding: '8px', background: 'transparent', color: 'var(--text-secondary)', borderRadius: 0, borderRight: '1px solid rgba(255,255,255,0.05)' }} onClick={() => setDateB(changeDate(dateB, -1))}>◀ 이전</button>
-                <input 
-                  type="date"
-                  value={dateB}
-                  onChange={(e) => setDateB(e.target.value)}
-                  onClick={(e) => { if ('showPicker' in HTMLInputElement.prototype) (e.target as HTMLInputElement).showPicker(); }}
-                  style={{ 
-                    background: 'transparent', 
-                    border: 'none', 
-                    color: 'var(--text-primary)', 
-                    fontWeight: 'bold', 
-                    textAlign: 'center', 
-                    fontSize: '0.95rem',
-                    padding: '8px 4px',
-                    outline: 'none',
-                    cursor: 'pointer'
-                  }}
-                />
-                <button className="btn" style={{ flex: 1, padding: '8px', background: 'transparent', color: 'var(--text-secondary)', borderRadius: 0, borderLeft: '1px solid rgba(255,255,255,0.05)' }} onClick={() => setDateB(changeDate(dateB, 1))}>다음 ▶</button>
+              <div style={{ position: 'relative' }}>
+                {isFetchingPhotos && <div style={{position: 'absolute', top: '-18px', left: 0, right: 0, textAlign: 'center', fontSize: '0.75rem', color: 'var(--color-purple)'}}>사진을 불러오는 중...</div>}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', overflow: 'hidden' }}>
+                  <button className="btn" style={{ flex: 1, padding: '8px', background: 'transparent', color: 'var(--text-secondary)', borderRadius: 0, borderRight: '1px solid rgba(255,255,255,0.05)' }} onClick={() => handleDateChange(changeDate(dateB, -1), 'B')}>◀ 이전</button>
+                  <input 
+                    type="date"
+                    value={dateB}
+                    onChange={(e) => handleDateChange(e.target.value, 'B')}
+                    onClick={(e) => { if ('showPicker' in HTMLInputElement.prototype) (e.target as HTMLInputElement).showPicker(); }}
+                    style={{ 
+                      background: 'transparent', 
+                      border: 'none', 
+                      color: 'var(--text-primary)', 
+                      fontWeight: 'bold', 
+                      textAlign: 'center', 
+                      fontSize: '0.95rem',
+                      padding: '8px 4px',
+                      outline: 'none',
+                      cursor: 'pointer'
+                    }}
+                  />
+                  <button className="btn" style={{ flex: 1, padding: '8px', background: 'transparent', color: 'var(--text-secondary)', borderRadius: 0, borderLeft: '1px solid rgba(255,255,255,0.05)' }} onClick={() => handleDateChange(changeDate(dateB, 1), 'B')}>다음 ▶</button>
+                </div>
               </div>
             </div>
             

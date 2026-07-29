@@ -150,11 +150,11 @@ export async function getDashboardData() {
     orderBy: { date: 'asc' }
   })
 
-  // 최근 3일치 사진만 초기 로딩에 포함 (대시보드 표시용)
-  const threeDaysAgo = new Date();
-  threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+  // 최근 7일치 사진만 초기 로딩에 포함 (대시보드 표시용)
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const recentPhotos = await prisma.dailyRecord.findMany({
-    where: { date: { gte: threeDaysAgo } },
+    where: { date: { gte: sevenDaysAgo } },
     select: { userId: true, date: true, breakfastUrl: true, lunchUrl: true, dinnerUrl: true }
   });
 
@@ -191,4 +191,54 @@ export async function getGalleryDataForMonth(year: number, month: number) {
     }
   });
   return photos;
+}
+// 특정 날짜 구간의 사진만 불러오기 (대시보드 이전/다음 페이징용)
+export async function getPhotosForDateRange(startDateStr: string, endDateStr: string) {
+  const startDate = new Date(startDateStr);
+  const endDate = new Date(endDateStr);
+  // 종료일의 자정 직전까지 포함하기 위해 +1일
+  endDate.setDate(endDate.getDate() + 1);
+
+  const photos = await prisma.dailyRecord.findMany({
+    where: {
+      date: {
+        gte: startDate,
+        lt: endDate
+      }
+    },
+    select: { userId: true, date: true, breakfastUrl: true, lunchUrl: true, dinnerUrl: true }
+  });
+  return photos;
+}
+
+// ==========================================
+// DB 다이어트 (어드민 최적화용)
+// ==========================================
+export async function getHeavyPhotos() {
+  const records = await prisma.dailyRecord.findMany({
+    where: {
+      OR: [
+        { breakfastUrl: { not: null } },
+        { lunchUrl: { not: null } },
+        { dinnerUrl: { not: null } }
+      ]
+    },
+    select: { id: true, userId: true, date: true, breakfastUrl: true, lunchUrl: true, dinnerUrl: true }
+  });
+  
+  // 150KB (약 200,000자) 이상인 거대 사진만 필터링
+  const heavy = records.filter(r => 
+    (r.breakfastUrl && r.breakfastUrl.length > 200000) ||
+    (r.lunchUrl && r.lunchUrl.length > 200000) ||
+    (r.dinnerUrl && r.dinnerUrl.length > 200000)
+  );
+  
+  return heavy;
+}
+
+export async function updateDailyRecordUrls(id: string, breakfastUrl: string | null, lunchUrl: string | null, dinnerUrl: string | null) {
+  await prisma.dailyRecord.update({
+    where: { id },
+    data: { breakfastUrl, lunchUrl, dinnerUrl }
+  });
 }
