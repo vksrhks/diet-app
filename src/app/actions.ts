@@ -171,11 +171,18 @@ export async function getDashboardData() {
   return { dailyRecords, inbodyRecords }
 }
 
-// 갤러리 탭 진입 시 과거 모든 사진 데이터 불러오기 함수
-export async function getAllGalleryData() {
+// 갤러리 탭 진입 시 과거 월별 사진 데이터 불러오기 함수
+export async function getGalleryDataForMonth(year: number, month: number) {
+  const startDate = new Date(year, month, 1);
+  const endDate = new Date(year, month + 1, 1);
+
   const photos = await prisma.dailyRecord.findMany({
     select: { userId: true, date: true, breakfastUrl: true, lunchUrl: true, dinnerUrl: true },
     where: {
+      date: {
+        gte: startDate,
+        lt: endDate
+      },
       OR: [
         { breakfastUrl: { not: null } },
         { lunchUrl: { not: null } },

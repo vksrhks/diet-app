@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { getDashboardData, saveDailyRecord, saveInbodyRecord, deleteDailyRecord, deleteInbodyRecord, getAllGalleryData } from '@/app/actions';
+import { getDashboardData, saveDailyRecord, saveInbodyRecord, deleteDailyRecord, deleteInbodyRecord, getGalleryDataForMonth } from '@/app/actions';
 import imageCompression from 'browser-image-compression';
 
 export default function DashboardClient({ initialData }: { initialData: { dailyRecords: any[], inbodyRecords: any[] } }) {
@@ -43,21 +43,33 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
     if (userB) setNameB(userB.name);
   }, [initialData]);
 
+  // 데이터 수동 재조회 (UI 즉시 갱신용)
+  const loadData = async () => {
+    try {
+      const data = await getDashboardData();
+      setDbData(data);
+      const userA = data.dailyRecords.find((r: any) => r.userId === 'user-a')?.user || data.inbodyRecords.find((r: any) => r.userId === 'user-a')?.user;
+      const userB = data.dailyRecords.find((r: any) => r.userId === 'user-b')?.user || data.inbodyRecords.find((r: any) => r.userId === 'user-b')?.user;
+      if (userA) setNameA(userA.name);
+      if (userB) setNameB(userB.name);
+    } catch (e) {
+      console.error("데이터 로드 실패:", e);
+    }
+  };
+
   // 갤러리 지연 로딩 상태
   const [galleryPhotos, setGalleryPhotos] = useState<any[]>([]);
-  const [hasFetchedGallery, setHasFetchedGallery] = useState(false);
   const [isGalleryLoading, setIsGalleryLoading] = useState(false);
 
   useEffect(() => {
-    if (activeTab === 'gallery' && !hasFetchedGallery) {
+    if (activeTab === 'gallery') {
       setIsGalleryLoading(true);
-      getAllGalleryData().then(photos => {
+      getGalleryDataForMonth(viewDate.getFullYear(), viewDate.getMonth()).then(photos => {
         setGalleryPhotos(photos);
-        setHasFetchedGallery(true);
         setIsGalleryLoading(false);
       });
     }
-  }, [activeTab, hasFetchedGallery]);
+  }, [activeTab, viewDate]);
 
   // 모달 상태 관리
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
@@ -212,8 +224,9 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
       lunchUrl,
       dinnerUrl
     });
-    if (hasFetchedGallery) {
-      getAllGalleryData().then(setGalleryPhotos);
+    await loadData();
+    if (activeTab === 'gallery') {
+      getGalleryDataForMonth(viewDate.getFullYear(), viewDate.getMonth()).then(setGalleryPhotos);
     }
     setIsSaving(false);
     closeModal();
@@ -224,8 +237,9 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
     if (!confirm('해당 날짜의 기록을 삭제하시겠습니까?')) return;
     setIsSaving(true);
     await deleteDailyRecord('user-' + selectedPerson?.toLowerCase(), selectedPerson === 'A' ? dateA : dateB);
-    if (hasFetchedGallery) {
-      getAllGalleryData().then(setGalleryPhotos);
+    await loadData();
+    if (activeTab === 'gallery') {
+      getGalleryDataForMonth(viewDate.getFullYear(), viewDate.getMonth()).then(setGalleryPhotos);
     }
     setIsSaving(false);
     closeModal();
@@ -236,6 +250,7 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
     setIsSaving(true);
     // 월별 저장이므로 무조건 해당 월의 1일 날짜로 삭제
     await deleteInbodyRecord('user-' + selectedPerson?.toLowerCase(), (selectedPerson === 'A' ? inbodyDateA : inbodyDateB).substring(0, 7) + '-01');
+    await loadData();
     setIsSaving(false);
     closeModal();
   };
@@ -251,6 +266,7 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
       fatMass: fatMassInput ? parseFloat(fatMassInput) : undefined,
       fatPercentage: fatPercentInput ? parseFloat(fatPercentInput) : undefined,
     });
+    await loadData();
     setIsSaving(false);
     closeModal();
   };
