@@ -8,7 +8,6 @@ import imageCompression from 'browser-image-compression';
 export default function DashboardClient({ initialData }: { initialData: { dailyRecords: any[], inbodyRecords: any[] } }) {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'summary' | 'gallery'>('dashboard');
   const [viewDate, setViewDate] = useState(new Date());
-  const [isProfileExpanded, setIsProfileExpanded] = useState(false);
   const [chartFilter, setChartFilter] = useState<'day' | 'week' | 'month'>('day');
   
   // 1인 선택 모드 (디폴트: 이수정 'B')
@@ -354,7 +353,7 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
 
     // 캘린더용
     calendarData[i] = {};
-    const exString = (rec: any) => rec?.exercised ? `🔥 ${rec.exerciseType || '완료'}` : (rec?.exerciseType === '휴식' ? '💤 휴식' : '❌ 미입력');
+    const exString = (rec: any) => rec?.exercised ? `💪 ${rec.exerciseType || '완료'}` : (rec?.exerciseType === '휴식' ? '💤 휴식' : '❌ 미입력');
     
     const buildPhotos = (p: any, ownerName: string) => {
       const arr = [];
@@ -440,6 +439,84 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
   const latestWeightA = [...dbData.dailyRecords].filter(r => r.userId === 'user-a' && r.weight).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]?.weight;
   const latestWeightB = [...dbData.dailyRecords].filter(r => r.userId === 'user-b' && r.weight).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]?.weight;
 
+  // --- 추가된 통계 계산 (차트용 감량치, 월간/총 감량치, 운동/휴식 횟수) ---
+  const calcChartLoss = (data: any[], key: 'A' | 'B') => {
+    const valid = data.filter(d => d[key] !== undefined && d[key] !== null);
+    if (valid.length < 2) return null;
+    const first = valid[0][key];
+    const last = valid[valid.length - 1][key];
+    const diff = last - first;
+    return diff > 0 ? `+${diff.toFixed(1)}kg` : `${diff.toFixed(1)}kg`;
+  };
+  const chartLossA = calcChartLoss(filteredChartData, 'A');
+  const chartLossB = calcChartLoss(filteredChartData, 'B');
+
+  const calcInbodyLoss = (data: any[], key: string, suffix: string = '') => {
+    const valid = data.filter(d => d[key] !== undefined && d[key] !== null);
+    if (valid.length < 2) return null;
+    const first = valid[0][key];
+    const last = valid[valid.length - 1][key];
+    const diff = last - first;
+    return diff > 0 ? `+${diff.toFixed(1)}${suffix}` : `${diff.toFixed(1)}${suffix}`;
+  };
+  const lossA_muscle = calcInbodyLoss(inbodyChartData, 'A_muscle', 'kg');
+  const lossB_muscle = calcInbodyLoss(inbodyChartData, 'B_muscle', 'kg');
+  const lossA_fat_mass = calcInbodyLoss(inbodyChartData, 'A_fat_mass', 'kg');
+  const lossB_fat_mass = calcInbodyLoss(inbodyChartData, 'B_fat_mass', 'kg');
+  const lossA_fat = calcInbodyLoss(inbodyChartData, 'A_fat', '%');
+  const lossB_fat = calcInbodyLoss(inbodyChartData, 'B_fat', '%');
+
+  let exCountA = 0, restCountA = 0;
+  let exCountB = 0, restCountB = 0;
+  Object.values(calendarData).forEach(day => {
+    if (day?.A?.exercise?.includes('💪')) exCountA++;
+    if (day?.A?.exercise?.includes('💤')) restCountA++;
+    if (day?.B?.exercise?.includes('💪')) exCountB++;
+    if (day?.B?.exercise?.includes('💤')) restCountB++;
+  });
+
+  const calcWeightStats = (userId: string) => {
+    const userRecords = [...dbData.dailyRecords]
+      .filter(r => r.userId === userId && r.weight !== undefined && r.weight !== null)
+      .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    if (userRecords.length < 2) return { total: null, monthly: null };
+
+    const firstEver = userRecords[0].weight;
+    const lastEver = userRecords[userRecords.length - 1].weight;
+    const totalDiff = lastEver - firstEver;
+
+    const currentMonthStart = new Date(currentYear, currentMonth, 1).getTime();
+    const currentMonthEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59, 999).getTime();
+    
+    const monthRecords = userRecords.filter(r => {
+      const t = new Date(r.date).getTime();
+      return t >= currentMonthStart && t <= currentMonthEnd;
+    });
+
+    let monthlyDiff = null;
+    if (monthRecords.length >= 1) {
+      if (monthRecords.length >= 2) {
+        monthlyDiff = monthRecords[monthRecords.length - 1].weight - monthRecords[0].weight;
+      } else {
+        const pastRecords = userRecords.filter(r => new Date(r.date).getTime() < new Date(monthRecords[0].date).getTime());
+        if (pastRecords.length > 0) {
+          monthlyDiff = monthRecords[0].weight - pastRecords[pastRecords.length - 1].weight;
+        } else {
+          monthlyDiff = 0;
+        }
+      }
+    }
+
+    return {
+      total: totalDiff > 0 ? `+${totalDiff.toFixed(1)}kg` : `${totalDiff.toFixed(1)}kg`,
+      monthly: monthlyDiff !== null ? (monthlyDiff > 0 ? `+${monthlyDiff.toFixed(1)}kg` : `${monthlyDiff.toFixed(1)}kg`) : null
+    };
+  };
+
+  const statsA = calcWeightStats('user-a');
+  const statsB = calcWeightStats('user-b');
+
   return (
     <main className="container">
       <header style={{ textAlign: 'center', marginBottom: '32px', marginTop: '20px' }}>
@@ -471,94 +548,39 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
           <section className="glass-card" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ fontSize: '1.2rem', margin: 0, color: 'var(--text-primary)' }}>📊 바디 프로필</h2>
-              <button className="btn" style={{ padding: '4px 12px', fontSize: '0.85rem', background: 'rgba(255,255,255,0.1)' }} onClick={() => setIsProfileExpanded(!isProfileExpanded)}>
-                {isProfileExpanded ? '접기 ▲' : '자세히 보기 ▼'}
-              </button>
             </div>
 
-            {!isProfileExpanded ? (
-              // 간략 모드 (접힘) - 항상 좌우 2분할 (모바일 대응)
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 
-                {/* Person A 간략 */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: '8px', borderLeft: '4px solid var(--color-mint)' }}>
-                  <div style={{ color: 'var(--color-mint)', fontWeight: 'bold', fontSize: '1.05rem', marginBottom: '4px' }}>{nameA}</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                    <span>체중: <strong style={{ color: 'var(--text-primary)' }}>{latestWeightA || '-'}</strong> kg</span> |
-                    <span>골격근: <strong style={{ color: 'var(--text-primary)' }}>{latestInbodyA?.muscleMass || '-'}</strong> kg</span> |
-                    <span>체지방: <strong style={{ color: 'var(--text-primary)' }}>{latestInbodyA?.fatMass || '-'}</strong> kg</span> |
-                    <span>체지방률: <strong style={{ color: '#ff006e' }}>{latestInbodyA?.fatPercentage || '-'}</strong> %</span>
-                  </div>
-                </div>
-
-                {/* Person B 간략 */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: '8px', borderLeft: '4px solid var(--color-purple)' }}>
-                  <div style={{ color: 'var(--color-purple)', fontWeight: 'bold', fontSize: '1.05rem', marginBottom: '4px' }}>{nameB}</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                    <span>체중: <strong style={{ color: 'var(--text-primary)' }}>{latestWeightB || '-'}</strong> kg</span> |
-                    <span>골격근: <strong style={{ color: 'var(--text-primary)' }}>{latestInbodyB?.muscleMass || '-'}</strong> kg</span> |
-                    <span>체지방: <strong style={{ color: 'var(--text-primary)' }}>{latestInbodyB?.fatMass || '-'}</strong> kg</span> |
-                    <span>체지방률: <strong style={{ color: '#ff006e' }}>{latestInbodyB?.fatPercentage || '-'}</strong> %</span>
-                  </div>
-                </div>
-
-              </div>
-            ) : (
-              // 확장 모드 (펼침)
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                {/* Person A Stat Card */}
-                <div className="glass-card" style={{ padding: '16px', borderTop: '4px solid var(--color-mint)' }}>
-                  <h3 style={{ fontSize: '1.1rem', marginBottom: '16px', color: 'var(--color-mint)' }}>{nameA}</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '8px' }}>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>체중</p>
-                      <p style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{latestWeightA ? `${latestWeightA} kg` : '-'}</p>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '8px' }}>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>골격근량</p>
-                      <p style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{latestInbodyA?.muscleMass ? `${latestInbodyA.muscleMass} kg` : '-'}</p>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '8px' }}>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>체지방량</p>
-                      <p style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{latestInbodyA?.fatMass ? `${latestInbodyA.fatMass} kg` : '-'}</p>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '8px' }}>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>체지방률</p>
-                      <p style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#ff006e' }}>{latestInbodyA?.fatPercentage ? `${latestInbodyA.fatPercentage} %` : '-'}</p>
-                    </div>
-                  </div>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '12px', textAlign: 'right' }}>
-                    업데이트: {latestInbodyA?.date ? new Date(latestInbodyA.date).toISOString().split('T')[0] : '없음'}
-                  </p>
-                </div>
-  
-                {/* Person B Stat Card */}
-                <div className="glass-card" style={{ padding: '16px', borderTop: '4px solid var(--color-purple)' }}>
-                  <h3 style={{ fontSize: '1.1rem', marginBottom: '16px', color: 'var(--color-purple)' }}>{nameB}</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '8px' }}>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>체중</p>
-                      <p style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{latestWeightB ? `${latestWeightB} kg` : '-'}</p>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '8px' }}>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>골격근량</p>
-                      <p style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{latestInbodyB?.muscleMass ? `${latestInbodyB.muscleMass} kg` : '-'}</p>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '8px' }}>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>체지방량</p>
-                      <p style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{latestInbodyB?.fatMass ? `${latestInbodyB.fatMass} kg` : '-'}</p>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', padding: '12px', borderRadius: '8px' }}>
-                      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>체지방률</p>
-                      <p style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#ff006e' }}>{latestInbodyB?.fatPercentage ? `${latestInbodyB.fatPercentage} %` : '-'}</p>
-                    </div>
-                  </div>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '12px', textAlign: 'right' }}>
-                    업데이트: {latestInbodyB?.date ? new Date(latestInbodyB.date).toISOString().split('T')[0] : '없음'}
-                  </p>
+              {/* Person A 간략 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: '8px', borderLeft: '4px solid var(--color-mint)' }}>
+                <div style={{ color: 'var(--color-mint)', fontWeight: 'bold', fontSize: '1.05rem', marginBottom: '4px' }}>{nameA}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  <span>체중: <strong style={{ color: 'var(--text-primary)' }}>{latestWeightA || '-'}</strong> kg</span>
+                  <span style={{color: 'rgba(255,255,255,0.2)'}}>|</span>
+                  <span>골격근: <strong style={{ color: 'var(--text-primary)' }}>{latestInbodyA?.muscleMass || '-'}</strong> kg</span>
+                  <span style={{color: 'rgba(255,255,255,0.2)'}}>|</span>
+                  <span>체지방: <strong style={{ color: 'var(--text-primary)' }}>{latestInbodyA?.fatMass || '-'}</strong> kg</span>
+                  <span style={{color: 'rgba(255,255,255,0.2)'}}>|</span>
+                  <span>체지방률: <strong style={{ color: '#ff006e' }}>{latestInbodyA?.fatPercentage || '-'}</strong> %</span>
                 </div>
               </div>
-            )}
+
+              {/* Person B 간략 */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(255,255,255,0.02)', padding: '12px 16px', borderRadius: '8px', borderLeft: '4px solid var(--color-purple)' }}>
+                <div style={{ color: 'var(--color-purple)', fontWeight: 'bold', fontSize: '1.05rem', marginBottom: '4px' }}>{nameB}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  <span>체중: <strong style={{ color: 'var(--text-primary)' }}>{latestWeightB || '-'}</strong> kg</span>
+                  <span style={{color: 'rgba(255,255,255,0.2)'}}>|</span>
+                  <span>골격근: <strong style={{ color: 'var(--text-primary)' }}>{latestInbodyB?.muscleMass || '-'}</strong> kg</span>
+                  <span style={{color: 'rgba(255,255,255,0.2)'}}>|</span>
+                  <span>체지방: <strong style={{ color: 'var(--text-primary)' }}>{latestInbodyB?.fatMass || '-'}</strong> kg</span>
+                  <span style={{color: 'rgba(255,255,255,0.2)'}}>|</span>
+                  <span>체지방률: <strong style={{ color: '#ff006e' }}>{latestInbodyB?.fatPercentage || '-'}</strong> %</span>
+                </div>
+              </div>
+
+            </div>
           </section>
 
           {/* --- 2. 오늘의 기록 --- */}
@@ -753,10 +775,37 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
           
           {/* 월간 종합 캘린더 */}
           <section className="glass-card">
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
-              <button className="btn" style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.05)' }} onClick={() => setViewDate(new Date(currentYear, currentMonth - 1, 1))}>◀</button>
-              <h2 style={{ fontSize: '1.5rem', margin: 0 }}>{currentYear}년 {currentMonth + 1}월</h2>
-              <button className="btn" style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.05)' }} onClick={() => setViewDate(new Date(currentYear, currentMonth + 1, 1))}>▶</button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', marginBottom: '16px', gap: '10px' }}>
+              
+              {/* 왼쪽: 운동 횟수 */}
+              <div style={{ justifySelf: 'start', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                <div><span style={{color: 'var(--color-mint)', fontWeight: 'bold'}}>{nameA}</span>: 💪{exCountA} 💤{restCountA}</div>
+                <div><span style={{color: 'var(--color-purple)', fontWeight: 'bold'}}>{nameB}</span>: 💪{exCountB} 💤{restCountB}</div>
+              </div>
+
+              {/* 가운데: 달력 이동 */}
+              <div style={{ justifySelf: 'center', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <button className="btn" style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.05)' }} onClick={() => setViewDate(new Date(currentYear, currentMonth - 1, 1))}>◀</button>
+                <h2 style={{ fontSize: '1.5rem', margin: 0, minWidth: '130px', textAlign: 'center' }}>{currentYear}년 {currentMonth + 1}월</h2>
+                <button className="btn" style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.05)' }} onClick={() => setViewDate(new Date(currentYear, currentMonth + 1, 1))}>▶</button>
+              </div>
+
+              {/* 오른쪽: 감량치 */}
+              <div style={{ justifySelf: 'end', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                  <span style={{color: 'var(--color-mint)', fontWeight: 'bold'}}>{nameA}</span>
+                  <span>이번달: <strong style={{color: statsA.monthly?.startsWith('+') ? '#ff6b6b' : '#69db7c'}}>{statsA.monthly || '-'}</strong></span>
+                  <span style={{color: 'rgba(255,255,255,0.2)'}}>|</span>
+                  <span>총 감량치: <strong style={{color: statsA.total?.startsWith('+') ? '#ff6b6b' : '#69db7c'}}>{statsA.total || '-'}</strong></span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center', marginTop: '2px' }}>
+                  <span style={{color: 'var(--color-purple)', fontWeight: 'bold'}}>{nameB}</span>
+                  <span>이번달: <strong style={{color: statsB.monthly?.startsWith('+') ? '#ff6b6b' : '#69db7c'}}>{statsB.monthly || '-'}</strong></span>
+                  <span style={{color: 'rgba(255,255,255,0.2)'}}>|</span>
+                  <span>총 감량치: <strong style={{color: statsB.total?.startsWith('+') ? '#ff6b6b' : '#69db7c'}}>{statsB.total || '-'}</strong></span>
+                </div>
+              </div>
+
             </div>
             <div className="calendar-wrapper">
               <div className="calendar-header">
@@ -805,7 +854,9 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginTop: '16px' }}>
               <div style={{ height: '250px', width: '100%', background: 'rgba(255,255,255,0.02)', padding: '16px 16px 32px 16px', borderRadius: '12px' }}>
-                <h3 style={{ fontSize: '1rem', marginBottom: '8px', textAlign: 'center', color: 'var(--color-mint)' }}>{nameA} 체중</h3>
+                <h3 style={{ fontSize: '1rem', marginBottom: '8px', textAlign: 'center', color: 'var(--color-mint)' }}>
+                  {nameA} 체중 {chartLossA && <span style={{fontSize: '0.85rem', color: chartLossA.startsWith('+') ? '#ff6b6b' : '#69db7c', marginLeft: '6px'}}>({chartLossA})</span>}
+                </h3>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={filteredChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <XAxis dataKey="date" stroke="var(--text-secondary)" fontSize={12} tickLine={false} axisLine={false} />
@@ -816,7 +867,9 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
                 </ResponsiveContainer>
               </div>
               <div style={{ height: '250px', width: '100%', background: 'rgba(255,255,255,0.02)', padding: '16px 16px 32px 16px', borderRadius: '12px' }}>
-                <h3 style={{ fontSize: '1rem', marginBottom: '8px', textAlign: 'center', color: 'var(--color-purple)' }}>{nameB} 체중</h3>
+                <h3 style={{ fontSize: '1rem', marginBottom: '8px', textAlign: 'center', color: 'var(--color-purple)' }}>
+                  {nameB} 체중 {chartLossB && <span style={{fontSize: '0.85rem', color: chartLossB.startsWith('+') ? '#ff6b6b' : '#69db7c', marginLeft: '6px'}}>({chartLossB})</span>}
+                </h3>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={filteredChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <XAxis dataKey="date" stroke="var(--text-secondary)" fontSize={12} tickLine={false} axisLine={false} />
@@ -834,7 +887,9 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
             <h2 style={{ marginBottom: '16px', fontSize: '1.2rem', color: '#d500f9' }}>💪 골격근량 변화 (kg)</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginTop: '16px' }}>
               <div style={{ height: '250px', width: '100%', background: 'rgba(255,255,255,0.02)', padding: '16px 16px 32px 16px', borderRadius: '12px' }}>
-                <h3 style={{ fontSize: '1rem', marginBottom: '8px', textAlign: 'center', color: 'var(--color-mint)' }}>{nameA} 골격근량</h3>
+                <h3 style={{ fontSize: '1rem', marginBottom: '8px', textAlign: 'center', color: 'var(--color-mint)' }}>
+                  {nameA} 골격근량 {lossA_muscle && <span style={{fontSize: '0.85rem', color: lossA_muscle.startsWith('+') ? '#ff6b6b' : '#69db7c', marginLeft: '6px'}}>({lossA_muscle})</span>}
+                </h3>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={inbodyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <XAxis dataKey="date" stroke="var(--text-secondary)" fontSize={12} tickLine={false} axisLine={false} />
@@ -845,7 +900,9 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
                 </ResponsiveContainer>
               </div>
               <div style={{ height: '250px', width: '100%', background: 'rgba(255,255,255,0.02)', padding: '16px 16px 32px 16px', borderRadius: '12px' }}>
-                <h3 style={{ fontSize: '1rem', marginBottom: '8px', textAlign: 'center', color: 'var(--color-purple)' }}>{nameB} 골격근량</h3>
+                <h3 style={{ fontSize: '1rem', marginBottom: '8px', textAlign: 'center', color: 'var(--color-purple)' }}>
+                  {nameB} 골격근량 {lossB_muscle && <span style={{fontSize: '0.85rem', color: lossB_muscle.startsWith('+') ? '#ff6b6b' : '#69db7c', marginLeft: '6px'}}>({lossB_muscle})</span>}
+                </h3>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={inbodyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <XAxis dataKey="date" stroke="var(--text-secondary)" fontSize={12} tickLine={false} axisLine={false} />
@@ -863,7 +920,9 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
             <h2 style={{ marginBottom: '16px', fontSize: '1.2rem', color: '#fb8500' }}>🧈 체지방량 변화 (kg)</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginTop: '16px' }}>
               <div style={{ height: '250px', width: '100%', background: 'rgba(255,255,255,0.02)', padding: '16px 16px 32px 16px', borderRadius: '12px' }}>
-                <h3 style={{ fontSize: '1rem', marginBottom: '8px', textAlign: 'center', color: 'var(--color-mint)' }}>{nameA} 체지방량</h3>
+                <h3 style={{ fontSize: '1rem', marginBottom: '8px', textAlign: 'center', color: 'var(--color-mint)' }}>
+                  {nameA} 체지방량 {lossA_fat_mass && <span style={{fontSize: '0.85rem', color: lossA_fat_mass.startsWith('+') ? '#ff6b6b' : '#69db7c', marginLeft: '6px'}}>({lossA_fat_mass})</span>}
+                </h3>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={inbodyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <XAxis dataKey="date" stroke="var(--text-secondary)" fontSize={12} tickLine={false} axisLine={false} />
@@ -874,7 +933,9 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
                 </ResponsiveContainer>
               </div>
               <div style={{ height: '250px', width: '100%', background: 'rgba(255,255,255,0.02)', padding: '16px 16px 32px 16px', borderRadius: '12px' }}>
-                <h3 style={{ fontSize: '1rem', marginBottom: '8px', textAlign: 'center', color: 'var(--color-purple)' }}>{nameB} 체지방량</h3>
+                <h3 style={{ fontSize: '1rem', marginBottom: '8px', textAlign: 'center', color: 'var(--color-purple)' }}>
+                  {nameB} 체지방량 {lossB_fat_mass && <span style={{fontSize: '0.85rem', color: lossB_fat_mass.startsWith('+') ? '#ff6b6b' : '#69db7c', marginLeft: '6px'}}>({lossB_fat_mass})</span>}
+                </h3>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={inbodyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <XAxis dataKey="date" stroke="var(--text-secondary)" fontSize={12} tickLine={false} axisLine={false} />
@@ -892,7 +953,9 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
             <h2 style={{ marginBottom: '16px', fontSize: '1.2rem', color: '#ff006e' }}>🔥 체지방률 변화 (%)</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px', marginTop: '16px' }}>
               <div style={{ height: '250px', width: '100%', background: 'rgba(255,255,255,0.02)', padding: '16px 16px 32px 16px', borderRadius: '12px' }}>
-                <h3 style={{ fontSize: '1rem', marginBottom: '8px', textAlign: 'center', color: 'var(--color-mint)' }}>{nameA} 체지방률</h3>
+                <h3 style={{ fontSize: '1rem', marginBottom: '8px', textAlign: 'center', color: 'var(--color-mint)' }}>
+                  {nameA} 체지방률 {lossA_fat && <span style={{fontSize: '0.85rem', color: lossA_fat.startsWith('+') ? '#ff6b6b' : '#69db7c', marginLeft: '6px'}}>({lossA_fat})</span>}
+                </h3>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={inbodyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <XAxis dataKey="date" stroke="var(--text-secondary)" fontSize={12} tickLine={false} axisLine={false} />
@@ -903,7 +966,9 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
                 </ResponsiveContainer>
               </div>
               <div style={{ height: '250px', width: '100%', background: 'rgba(255,255,255,0.02)', padding: '16px 16px 32px 16px', borderRadius: '12px' }}>
-                <h3 style={{ fontSize: '1rem', marginBottom: '8px', textAlign: 'center', color: 'var(--color-purple)' }}>{nameB} 체지방률</h3>
+                <h3 style={{ fontSize: '1rem', marginBottom: '8px', textAlign: 'center', color: 'var(--color-purple)' }}>
+                  {nameB} 체지방률 {lossB_fat && <span style={{fontSize: '0.85rem', color: lossB_fat.startsWith('+') ? '#ff6b6b' : '#69db7c', marginLeft: '6px'}}>({lossB_fat})</span>}
+                </h3>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={inbodyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <XAxis dataKey="date" stroke="var(--text-secondary)" fontSize={12} tickLine={false} axisLine={false} />
