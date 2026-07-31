@@ -461,3 +461,44 @@ a {
     display: block;
   }
 }
+
+/* === Summary Header Responsive === */
+.summary-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 10px;
+}
+
+@media (max-width: 768px) {
+  .summary-header {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+  }
+  .summary-header-center { 
+    order: -1; /* 달력 이동(월)을 맨 위로 */
+    margin-bottom: 4px; 
+  }
+  .summary-header-left { 
+    width: 100%; 
+    display: flex; 
+    justify-content: center; 
+    gap: 24px;
+    background: rgba(255,255,255,0.02);
+    padding: 8px;
+    border-radius: 8px;
+  }
+  .summary-header-right { 
+    width: 100%; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    gap: 8px;
+    background: rgba(255,255,255,0.02);
+    padding: 12px;
+    border-radius: 8px;
+  }
+}

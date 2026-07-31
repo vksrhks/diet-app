@@ -775,30 +775,30 @@ export default function DashboardClient({ initialData }: { initialData: { dailyR
           
           {/* 월간 종합 캘린더 */}
           <section className="glass-card">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', marginBottom: '16px', gap: '10px' }}>
+            <div className="summary-header">
               
               {/* 왼쪽: 운동 횟수 */}
-              <div style={{ justifySelf: 'start', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              <div className="summary-header-left" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                 <div><span style={{color: 'var(--color-mint)', fontWeight: 'bold'}}>{nameA}</span>: 💪{exCountA} 💤{restCountA}</div>
                 <div><span style={{color: 'var(--color-purple)', fontWeight: 'bold'}}>{nameB}</span>: 💪{exCountB} 💤{restCountB}</div>
               </div>
 
               {/* 가운데: 달력 이동 */}
-              <div style={{ justifySelf: 'center', display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div className="summary-header-center" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <button className="btn" style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.05)' }} onClick={() => setViewDate(new Date(currentYear, currentMonth - 1, 1))}>◀</button>
                 <h2 style={{ fontSize: '1.5rem', margin: 0, minWidth: '130px', textAlign: 'center' }}>{currentYear}년 {currentMonth + 1}월</h2>
                 <button className="btn" style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.05)' }} onClick={() => setViewDate(new Date(currentYear, currentMonth + 1, 1))}>▶</button>
               </div>
 
               {/* 오른쪽: 감량치 */}
-              <div style={{ justifySelf: 'end', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+              <div className="summary-header-right" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <span style={{color: 'var(--color-mint)', fontWeight: 'bold'}}>{nameA}</span>
                   <span>이번달: <strong style={{color: statsA.monthly?.startsWith('+') ? '#ff6b6b' : '#69db7c'}}>{statsA.monthly || '-'}</strong></span>
                   <span style={{color: 'rgba(255,255,255,0.2)'}}>|</span>
                   <span>총 감량치: <strong style={{color: statsA.total?.startsWith('+') ? '#ff6b6b' : '#69db7c'}}>{statsA.total || '-'}</strong></span>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center', marginTop: '2px' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
                   <span style={{color: 'var(--color-purple)', fontWeight: 'bold'}}>{nameB}</span>
                   <span>이번달: <strong style={{color: statsB.monthly?.startsWith('+') ? '#ff6b6b' : '#69db7c'}}>{statsB.monthly || '-'}</strong></span>
                   <span style={{color: 'rgba(255,255,255,0.2)'}}>|</span>
